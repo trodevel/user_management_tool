@@ -19,10 +19,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 9330 $ $Date:: 2018-06-08 #$ $Author: serge $
+// $Revision: 11703 $ $Date:: 2019-06-05 #$ $Author: serge $
 
 #include <iostream>
 #include <string>
+#include <cassert>
 
 #include "user_manager/user_manager.h"              // user_manager::UserManager
 #include "password_hasher/login_to_id_converter.h"  // password_hasher::convert_login_to_id
@@ -68,11 +69,9 @@ void print_help()
             << "\n";
 }
 
-user_manager::User * create_user(
-        const std::string & group_id,
+void init_user(
+        user_manager::User * user,
         const std::string & status,
-        const std::string & login,
-        const std::string & password,
         const std::string & gender,
         const std::string & name,
         const std::string & first_name,
@@ -81,25 +80,16 @@ user_manager::User * create_user(
         const std::string & phone,
         const std::string & timezone )
 {
-    auto res = new user_manager::User;
-
-    res->user_id        = password_hasher::convert_login_to_id( login );
-    utils::to_value( & res->group_id, group_id );
-    res->status         = std::stoi( status ) ? user_manager::status_e::ACTIVE : user_manager::status_e::INACTIVE;
-    res->login          = login;
-    res->password_hash  = password_hasher::convert_password_to_hash( password );;
-
-    res->gender         = std::stoi( gender ) == 1 ? user_manager::gender_e::MALE : user_manager::gender_e::FEMALE;
-    res->name           = name;
-    res->first_name     = first_name;
-    res->company_name   = company_name;
-    res->email          = email;
-    //res->email_2;
-    res->phone          = phone;
-    //res->phone_2        = ;
-    res->timezone       = timezone;
-
-    return res;
+    user->add_field( user_manager::User::STATUS, std::stoi( status ) ? int( user_manager::status_e::ACTIVE ) : int( user_manager::status_e::INACTIVE ) );
+    user->add_field( user_manager::User::GENDER, std::stoi( gender ) == 1 ? int( user_manager::gender_e::MALE ) : int( user_manager::gender_e::FEMALE ) );
+    user->add_field( user_manager::User::LAST_NAME, name );
+    user->add_field( user_manager::User::FIRST_NAME, first_name );
+    user->add_field( user_manager::User::COMPANY_NAME, company_name );
+    user->add_field( user_manager::User::EMAIL, email );
+    //user->email_2;
+    user->add_field( user_manager::User::PHONE, phone );
+    //user->phone_2        = ;
+    user->add_field( user_manager::User::TIMEZONE, timezone );
 }
 
 int init_file(
@@ -153,11 +143,12 @@ int add_user(
         return EXIT_FAILURE;
     }
 
-    auto user = create_user( group_id, status, login, password, gender, name, first_name, company_name, email, phone, timezone );
+    auto password_hash      = password_hasher::convert_password_to_hash( password );
 
+    user_manager::user_id_t id;
     std::string error_msg;
 
-    b = m.add( user, error_msg );
+    b = m.create_and_add_user( std::stoi( group_id ), login, password_hash, & id, & error_msg );
 
     if( b == false )
     {
@@ -165,7 +156,13 @@ int add_user(
         return EXIT_FAILURE;
     }
 
-    std::cout << "OK: user was added, user_id " << user->user_id << std::endl;
+    std::cout << "OK: user was added, user_id " << id << std::endl;
+
+    auto user = m.find__unlocked( id );
+
+    assert( user );
+
+    init_user( user, status, gender, name, first_name, company_name, email, phone, timezone );
 
     b = m.save( & error_msg, filename );
 
@@ -193,7 +190,7 @@ int delete_user(
         return EXIT_FAILURE;
     }
 
-    auto user = m.find( login );
+    auto user = m.find__unlocked( login );
 
     if( user == nullptr )
     {
@@ -248,7 +245,7 @@ int update(
 
         MUTEX_SCOPE_LOCK( mutex );
 
-        auto user = m.find( login );
+        auto user = m.find__unlocked( login );
 
         if( user == nullptr )
         {
@@ -258,19 +255,19 @@ int update(
 
         if( field == "status" )
         {
-            user->status    = std::stoi( value ) ? user_manager::status_e::ACTIVE : user_manager::status_e::INACTIVE;
+            user->update_field( user_manager::User::STATUS, std::stoi( value ) ? int( user_manager::status_e::ACTIVE ) : int( user_manager::status_e::INACTIVE ) );
         }
         else if( field == "name" )
         {
-            user->name          = value;
+            user->update_field( user_manager::User::LAST_NAME, value );
         }
         else if( field == "first_name" )
         {
-            user->first_name    = value;
+            user->update_field( user_manager::User::FIRST_NAME, value );
         }
         else if( field == "company_name" )
         {
-            user->company_name  = value;
+            user->update_field( user_manager::User::COMPANY_NAME, value );
         }
         else if( field == "password" )
         {
@@ -278,11 +275,11 @@ int update(
         }
         else if( field == "timezone" )
         {
-            user->timezone      = value;
+            user->update_field( user_manager::User::TIMEZONE, value );
         }
         else if( field == "gender" )
         {
-            user->gender        = std::stoi( value ) == 1 ? user_manager::gender_e::MALE : user_manager::gender_e::FEMALE;
+            user->update_field( user_manager::User::GENDER, std::stoi( value ) == 1 ? int( user_manager::gender_e::MALE ) : int( user_manager::gender_e::FEMALE ) );
         }
         else
         {
