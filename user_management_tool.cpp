@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 11703 $ $Date:: 2019-06-05 #$ $Author: serge $
+// $Revision: 11756 $ $Date:: 2019-06-17 #$ $Author: serge $
 
 #include <iostream>
 #include <string>
@@ -198,7 +198,7 @@ int delete_user(
         return EXIT_FAILURE;
     }
 
-    auto user_id = user->user_id;
+    auto user_id = user->get_user_id();
 
     std::string error_msg;
 
@@ -271,7 +271,7 @@ int update(
         }
         else if( field == "password" )
         {
-            user->password_hash = password_hasher::convert_password_to_hash( value );
+            user->set_password_hash( password_hasher::convert_password_to_hash( value ) );
         }
         else if( field == "timezone" )
         {
