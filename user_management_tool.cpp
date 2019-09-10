@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 11756 $ $Date:: 2019-06-17 #$ $Author: serge $
+// $Revision: 11974 $ $Date:: 2019-09-10 #$ $Author: serge $
 
 #include <iostream>
 #include <string>
@@ -97,7 +97,11 @@ int init_file(
 {
     user_manager::UserManager m;
 
-    auto b = m.init( filename );
+    m.init();
+
+    std::string error_msg;
+
+    auto b = m.load( filename, & error_msg );
 
     if( b )
     {
@@ -135,7 +139,11 @@ int add_user(
 {
     user_manager::UserManager m;
 
-    auto b = m.init( filename );
+    m.init();
+
+    std::string error_msg;
+
+    auto b = m.load( filename, & error_msg );
 
     if( b == false)
     {
@@ -182,7 +190,11 @@ int delete_user(
 {
     user_manager::UserManager m;
 
-    auto b = m.init( filename );
+    m.init();
+
+    std::string error_msg;
+
+    auto b = m.load( filename, & error_msg );
 
     if( b == false)
     {
@@ -232,7 +244,11 @@ int update(
 {
     user_manager::UserManager m;
 
-    auto b = m.init( filename );
+    m.init();
+
+    std::string error_msg;
+
+    auto b = m.load( filename, & error_msg );
 
     if( b == false)
     {
