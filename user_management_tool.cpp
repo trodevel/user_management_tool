@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 11974 $ $Date:: 2019-09-10 #$ $Author: serge $
+// $Revision: 11986 $ $Date:: 2019-09-12 #$ $Author: serge $
 
 #include <iostream>
 #include <string>
@@ -29,6 +29,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 #include "password_hasher/login_to_id_converter.h"  // password_hasher::convert_login_to_id
 #include "utils/to_value.h"                         // utils::to_value
 #include "utils/mutex_helper.h"                     // MUTEX_SCOPE_LOCK
+#include "utils/gen_uuid.h"             // utils::gen_uuid
 
 void print_help()
 {
@@ -69,6 +70,36 @@ void print_help()
             << "\n";
 }
 
+user_manager::status_e to_status( const std::string & s )
+{
+    if( s == "I" || s == "INACTIVE" )
+        return user_manager::status_e::INACTIVE;
+
+    if( s == "A" || s == "ACTIVE" )
+        return user_manager::status_e::ACTIVE;
+
+    if( s == "W" || s == "WAITING" )
+        return user_manager::status_e::WAITING_REGISTRATION;
+
+    std::cout << "ERROR: unsupported status " << s << ",  expected I, A, W or INACTIVE, ACTIVE, WAITING" << std::endl;
+    exit( EXIT_FAILURE );
+}
+
+user_manager::gender_e to_gender( const std::string & s )
+{
+    if( s == "M" || s == "MALE" )
+        return user_manager::gender_e::MALE;
+
+    if( s == "F" || s == "FEMALE" )
+        return user_manager::gender_e::FEMALE;
+
+    if( s == "U" || s == "UNDEF" )
+        return user_manager::gender_e::UNDEF;
+
+    std::cout << "ERROR: unsupported gender " << s << ",  expected M, F, U or MALE, FEMALE, UNDEF" << std::endl;
+    exit( EXIT_FAILURE );
+}
+
 void init_user(
         user_manager::User * user,
         const std::string & status,
@@ -80,8 +111,8 @@ void init_user(
         const std::string & phone,
         const std::string & timezone )
 {
-    user->add_field( user_manager::User::STATUS, std::stoi( status ) ? int( user_manager::status_e::ACTIVE ) : int( user_manager::status_e::INACTIVE ) );
-    user->add_field( user_manager::User::GENDER, std::stoi( gender ) == 1 ? int( user_manager::gender_e::MALE ) : int( user_manager::gender_e::FEMALE ) );
+    user->add_field( user_manager::User::STATUS, int( to_status( status ) ) );
+    user->add_field( user_manager::User::GENDER, int( to_gender( gender ) ) );
     user->add_field( user_manager::User::LAST_NAME, name );
     user->add_field( user_manager::User::FIRST_NAME, first_name );
     user->add_field( user_manager::User::COMPANY_NAME, company_name );
@@ -108,8 +139,6 @@ int init_file(
         std::cout << "ERROR: file already exists " << filename << std::endl;
         return EXIT_FAILURE;
     }
-
-    std::string error_msg;
 
     b = m.save( & error_msg, filename );
 
@@ -153,10 +182,11 @@ int add_user(
 
     auto password_hash      = password_hasher::convert_password_to_hash( password );
 
-    user_manager::user_id_t id;
-    std::string error_msg;
+    auto registration_key   = utils::gen_uuid();
 
-    b = m.create_and_add_user( std::stoi( group_id ), login, password_hash, & id, & error_msg );
+    user_manager::user_id_t id;
+
+    b = m.create_and_add_user( std::stoi( group_id ), login, password_hash, registration_key, & id, & error_msg );
 
     if( b == false )
     {
@@ -168,9 +198,9 @@ int add_user(
 
     auto user = m.find__unlocked( id );
 
-    assert( user );
+    assert( user.is_empty() == false );
 
-    init_user( user, status, gender, name, first_name, company_name, email, phone, timezone );
+    init_user( & user, status, gender, name, first_name, company_name, email, phone, timezone );
 
     b = m.save( & error_msg, filename );
 
@@ -204,15 +234,13 @@ int delete_user(
 
     auto user = m.find__unlocked( login );
 
-    if( user == nullptr )
+    if( user.is_empty() )
     {
         std::cout << "ERROR: cannot find user " << login << std::endl;
         return EXIT_FAILURE;
     }
 
-    auto user_id = user->get_user_id();
-
-    std::string error_msg;
+    auto user_id = user.get_user_id();
 
     b = m.delete_user( user_id, & error_msg );
 
@@ -263,7 +291,7 @@ int update(
 
         auto user = m.find__unlocked( login );
 
-        if( user == nullptr )
+        if( user.is_empty() )
         {
             std::cout << "ERROR: cannot find user " << login << std::endl;
             return EXIT_FAILURE;
@@ -271,31 +299,31 @@ int update(
 
         if( field == "status" )
         {
-            user->update_field( user_manager::User::STATUS, std::stoi( value ) ? int( user_manager::status_e::ACTIVE ) : int( user_manager::status_e::INACTIVE ) );
+            user.update_field( user_manager::User::STATUS, int( to_status( value ) ) );
         }
         else if( field == "name" )
         {
-            user->update_field( user_manager::User::LAST_NAME, value );
+            user.update_field( user_manager::User::LAST_NAME, value );
         }
         else if( field == "first_name" )
         {
-            user->update_field( user_manager::User::FIRST_NAME, value );
+            user.update_field( user_manager::User::FIRST_NAME, value );
         }
         else if( field == "company_name" )
         {
-            user->update_field( user_manager::User::COMPANY_NAME, value );
+            user.update_field( user_manager::User::COMPANY_NAME, value );
         }
         else if( field == "password" )
         {
-            user->set_password_hash( password_hasher::convert_password_to_hash( value ) );
+            user.set_password_hash( password_hasher::convert_password_to_hash( value ) );
         }
         else if( field == "timezone" )
         {
-            user->update_field( user_manager::User::TIMEZONE, value );
+            user.update_field( user_manager::User::TIMEZONE, value );
         }
         else if( field == "gender" )
         {
-            user->update_field( user_manager::User::GENDER, std::stoi( value ) == 1 ? int( user_manager::gender_e::MALE ) : int( user_manager::gender_e::FEMALE ) );
+            user.update_field( user_manager::User::GENDER, int( to_gender( value ) ) );
         }
         else
         {
@@ -305,8 +333,6 @@ int update(
     }
 
     std::cout << "OK: field '" << field << "' was updated" << std::endl;
-
-    std::string error_msg;
 
     b = m.save( & error_msg, filename );
 
