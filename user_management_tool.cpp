@@ -19,13 +19,14 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 11986 $ $Date:: 2019-09-12 #$ $Author: serge $
+// $Revision: 11993 $ $Date:: 2019-09-16 #$ $Author: serge $
 
 #include <iostream>
 #include <string>
 #include <cassert>
 
 #include "user_manager/user_manager.h"              // user_manager::UserManager
+#include "user_manager/str_helper.h"                // user_manager::StrHelper
 #include "password_hasher/login_to_id_converter.h"  // password_hasher::convert_login_to_id
 #include "utils/to_value.h"                         // utils::to_value
 #include "utils/mutex_helper.h"                     // MUTEX_SCOPE_LOCK
@@ -346,6 +347,43 @@ int update(
     return EXIT_SUCCESS;
 }
 
+int print(
+        const std::string & filename,
+        const std::string & login )
+{
+    user_manager::UserManager m;
+
+    m.init();
+
+    std::string error_msg;
+
+    auto b = m.load( filename, & error_msg );
+
+    if( b == false)
+    {
+        std::cout << "ERROR: cannot load users from " << filename << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    {
+        auto & mutex = m.get_mutex();
+
+        MUTEX_SCOPE_LOCK( mutex );
+
+        auto user = m.find__unlocked( login );
+
+        if( user.is_empty() )
+        {
+            std::cout << "ERROR: cannot find user " << login << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        std::cout << user_manager::StrHelper::to_string( user ) << std::endl;
+    }
+
+    return EXIT_SUCCESS;
+}
+
 int main( int argc, const char* argv[] )
 {
     if( argc <= 1 )
@@ -404,6 +442,17 @@ int main( int argc, const char* argv[] )
         }
 
         return update( argv[2], argv[3], argv[4], argv[5] );
+    }
+    else if( command == "print" || command == "p" )
+    {
+        const int expected = 1;
+        if( argc < expected + 2 )
+        {
+            std::cout << "ERROR: not enough arguments for command, given " << argc - 2 << ",  expected " << expected << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        return print( argv[2], argv[3] );
     }
 
     std::cout << "ERROR: unknown command " << command << std::endl;
