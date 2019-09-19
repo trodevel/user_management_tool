@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 11993 $ $Date:: 2019-09-16 #$ $Author: serge $
+// $Revision: 12021 $ $Date:: 2019-09-19 #$ $Author: serge $
 
 #include <iostream>
 #include <string>
@@ -80,7 +80,7 @@ user_manager::status_e to_status( const std::string & s )
         return user_manager::status_e::ACTIVE;
 
     if( s == "W" || s == "WAITING" )
-        return user_manager::status_e::WAITING_REGISTRATION;
+        return user_manager::status_e::WAITING_REGISTRATION_CONFIRMATION;
 
     std::cout << "ERROR: unsupported status " << s << ",  expected I, A, W or INACTIVE, ACTIVE, WAITING" << std::endl;
     exit( EXIT_FAILURE );
