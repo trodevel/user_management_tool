@@ -19,9 +19,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 12021 $ $Date:: 2019-09-19 #$ $Author: serge $
+// $Revision: 13890 $ $Date:: 2020-09-27 #$ $Author: serge $
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <cassert>
 
@@ -133,15 +134,15 @@ int init_file(
 
     std::string error_msg;
 
-    auto b = m.load( filename, & error_msg );
+    std::ifstream fs( filename );
 
-    if( b )
+    if( fs )
     {
         std::cout << "ERROR: file already exists " << filename << std::endl;
         return EXIT_FAILURE;
     }
 
-    b = m.save( & error_msg, filename );
+    auto b = m.save( & error_msg, filename );
 
     if( b == false )
     {
@@ -169,15 +170,13 @@ int add_user(
 {
     user_manager::UserManager m;
 
-    m.init();
-
-    std::string error_msg;
-
-    auto b = m.load( filename, & error_msg );
-
-    if( b == false)
+    try
     {
-        std::cout << "ERROR: cannot load users from " << filename << std::endl;
+        m.init( filename );
+    }
+    catch( std::exception & e )
+    {
+        std::cout << "ERROR: cannot load users from " << filename << ": " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -186,8 +185,9 @@ int add_user(
     auto registration_key   = utils::gen_uuid();
 
     user_manager::user_id_t id;
+    std::string error_msg;
 
-    b = m.create_and_add_user( std::stoi( group_id ), login, password_hash, registration_key, & id, & error_msg );
+    auto b = m.create_and_add_user( std::stoi( group_id ), login, password_hash, registration_key, & id, & error_msg );
 
     if( b == false )
     {
@@ -221,15 +221,13 @@ int delete_user(
 {
     user_manager::UserManager m;
 
-    m.init();
-
-    std::string error_msg;
-
-    auto b = m.load( filename, & error_msg );
-
-    if( b == false)
+    try
     {
-        std::cout << "ERROR: cannot load users from " << filename << std::endl;
+        m.init( filename );
+    }
+    catch( std::exception & e )
+    {
+        std::cout << "ERROR: cannot load users from " << filename << ": " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -242,8 +240,9 @@ int delete_user(
     }
 
     auto user_id = user.get_user_id();
+    std::string error_msg;
 
-    b = m.delete_user( user_id, & error_msg );
+    auto b = m.delete_user( user_id, & error_msg );
 
     if( b == false )
     {
@@ -273,15 +272,13 @@ int update(
 {
     user_manager::UserManager m;
 
-    m.init();
-
-    std::string error_msg;
-
-    auto b = m.load( filename, & error_msg );
-
-    if( b == false)
+    try
     {
-        std::cout << "ERROR: cannot load users from " << filename << std::endl;
+        m.init( filename );
+    }
+    catch( std::exception & e )
+    {
+        std::cout << "ERROR: cannot load users from " << filename << ": " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -335,7 +332,9 @@ int update(
 
     std::cout << "OK: field '" << field << "' was updated" << std::endl;
 
-    b = m.save( & error_msg, filename );
+    std::string error_msg;
+
+    auto b = m.save( & error_msg, filename );
 
     if( b == false )
     {
@@ -353,15 +352,13 @@ int print(
 {
     user_manager::UserManager m;
 
-    m.init();
-
-    std::string error_msg;
-
-    auto b = m.load( filename, & error_msg );
-
-    if( b == false)
+    try
     {
-        std::cout << "ERROR: cannot load users from " << filename << std::endl;
+        m.init( filename );
+    }
+    catch( std::exception & e )
+    {
+        std::cout << "ERROR: cannot load users from " << filename << ": " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -445,7 +442,7 @@ int main( int argc, const char* argv[] )
     }
     else if( command == "print" || command == "p" )
     {
-        const int expected = 1;
+        const int expected = 2;
         if( argc < expected + 2 )
         {
             std::cout << "ERROR: not enough arguments for command, given " << argc - 2 << ",  expected " << expected << std::endl;
